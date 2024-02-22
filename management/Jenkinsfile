@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    tools {
+        // Use JDK 17 for the build
+        jdk 'JDK17'
+    }
+
+    parameters {
+        // Define a parameter for the Git branch to build
+        string(name: 'BRANCH', defaultValue: 'main', description: 'Branch to build')
+    }
+
+    environment {
+        // Define the Docker image name
+        DOCKER_IMAGE = 'book-management-image'
+         // Define the Docker registry, replace with your registry
+        DOCKER_REGISTRY = 'your-docker-registry'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Checkout the specific branch from the repository
+                git branch: "${params.BRANCH}", url: 'https://github.com/xurichen/book-management.git'
+            }
+        }
+
+        stage('Build and Test') {
+            steps {
+                // Build the project and run tests
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    // Build the Docker image
+                    docker.build("${env.DOCKER_REGISTRY}/${env.DOCKER_IMAGE}")
+                    // Push the Docker image to a registry
+                    docker.withRegistry('', 'docker-registry-credentials') {
+                        docker.image("${env.DOCKER_REGISTRY}/${env.DOCKER_IMAGE}").push()
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Build, test, and Docker image creation completed successfully.'
+        }
+        failure {
+            echo 'The process failed at some stage.'
+        }
+    }
+}
